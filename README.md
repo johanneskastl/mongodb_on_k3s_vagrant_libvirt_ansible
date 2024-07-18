@@ -17,8 +17,34 @@ Please be aware, that this might break the Ansible provisioning.
 1. Make sure the git submodules are fully working by issuing
    `git submodule init && git submodule update`
 1. Run `vagrant up`
-1. Run `kubectl --kubeconfig ansible/k3s-kubeconfig get nodes` and you should
-   see your server.
+1. Connect to the URL that Ansible printed out at the end of the provisioning.
+   You can either use a locally installed `mongosh` or run a container with
+   podman or docker, e.g.
+   `podman container run --rm -ti --entrypoint bash docker.io/library/mongo`.
+
+   ```
+   $ mongosh --username root mongodb://mongodb.192.0.2.13.sslip.io:80
+   Enter password: *************
+   Current Mongosh Log ID: 6698f11e951bc2f385149f47
+   Connecting to:          mongodb://<credentials>@mongodb.192.0.2.13.sslip.io:80/?directConnection=true&appName=mongosh+2.2.10
+   [...]
+
+   test>
+   ```
+
+   To connect as the unprivileged user `vagrant-libvirt` to the database of the
+   same name, use the following command:
+
+   ```
+   $ mongosh --username vagrant-libvirt mongodb://mongodb.192.0.2.13.sslip.io:80/vagrant-libvirt
+   Enter password: *************
+   Current Mongosh Log ID: 6698f1376d240778f7149f47
+   Connecting to:          mongodb://<credentials>@mongodb.192.0.2.13.sslip.io:80/vagrant-libvirt?directConnection=true&appName=mongosh+2.2.10
+   [...]
+
+   vagrant-libvirt>
+   ```
+
 1. Party!
 
 ## Cleaning up
