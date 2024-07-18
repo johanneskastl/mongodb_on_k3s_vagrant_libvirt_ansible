@@ -58,6 +58,8 @@
               - vagrant-libvirt
           architecture: standalone
           replicaCount: 1
+          service:
+            type: NodePort
           persistence:
             storageClass: local-path
             size: 256Mi
