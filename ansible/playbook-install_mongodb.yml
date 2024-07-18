@@ -22,23 +22,6 @@
         kind: 'Namespace'
         state: 'present'
 
-    - name: 'Create the secret for the MongoDB credentials'
-      delegate_to: 'localhost'
-      kubernetes.core.k8s:
-        name: 'mongodb'
-        state: 'present'
-        resource_definition: |
-          apiVersion: v1
-          kind: Secret
-          metadata:
-            name: mongodb-credentials
-            namespace: mongodb
-          stringData:
-            mongodb-root-password: totallysecure
-            mongodb-metrics-password: totallysecure
-            mongodb-replica-set-key: totallysecure
-            mongodb-passwords: totallysecure
-
     - name: 'Install MongoDB via the helm chart'
       delegate_to: 'localhost'
       kubernetes.core.helm:
@@ -51,11 +34,13 @@
               openshift:
                 adaptSecurityContext: disable
           auth:
-            existingSecret: mongodb-credentials
+            rootPassword: totallysecure
             databases:
               - vagrant-libvirt
             usernames:
               - vagrant-libvirt
+            passwords:
+              - totallysecure
           architecture: standalone
           replicaCount: 1
           service:
