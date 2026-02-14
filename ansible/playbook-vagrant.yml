@@ -11,3 +11,6 @@
 
 - name: Run playbook-mongodb_operator_installation.yml
   ansible.builtin.import_playbook: playbook-mongodb_operator_installation.yml
+
+- name: Run playbook-mongodb_instance_installation.yml
+  ansible.builtin.import_playbook: playbook-mongodb_instance_installation.yml
