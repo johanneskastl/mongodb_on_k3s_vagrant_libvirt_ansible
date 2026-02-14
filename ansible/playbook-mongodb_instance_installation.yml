@@ -1,0 +1,225 @@
+---
+
+- name: Install a MongoDB instance
+  hosts: k3s1
+  gather_facts: true
+  become: false
+  module_defaults:
+    kubernetes.core.helm:
+      kubeconfig: ./k3s-kubeconfig
+    kubernetes.core.k8s:
+      kubeconfig: ./k3s-kubeconfig
+    kubernetes.core.k8s_info:
+      kubeconfig: ./k3s-kubeconfig
+
+  tasks:
+
+    - name: Create the mongodb namespace
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        name: mongodb
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    #
+    # serviceAccounts, roles and roleBindings
+    #
+
+    - name: Create the serviceAccount mongodb-kubernetes-database-pods
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        state: present
+        resource_definition: |
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: mongodb-kubernetes-database-pods
+            namespace: mongodb
+
+    - name: Create the serviceAccount mongodb-kubernetes-appdb
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        state: present
+        resource_definition: |
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: mongodb-kubernetes-appdb
+            namespace: mongodb
+
+    - name: Create the role mongodb-kubernetes-appdb
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        state: present
+        resource_definition: |
+          kind: Role
+          apiVersion: rbac.authorization.k8s.io/v1
+          metadata:
+            name: mongodb-kubernetes-appdb
+            namespace: mongodb
+          rules:
+            - apiGroups:
+                - ''
+              resources:
+                - secrets
+              verbs:
+                - get
+            - apiGroups:
+                - ''
+              resources:
+                - pods
+              verbs:
+                - patch
+                - delete
+                - get
+
+    - name: Create the roleBinding mongodb-kubernetes-appdb
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        state: present
+        resource_definition: |
+          kind: RoleBinding
+          apiVersion: rbac.authorization.k8s.io/v1
+          metadata:
+            name: mongodb-kubernetes-appdb
+            namespace: mongodb
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: Role
+            name: mongodb-kubernetes-appdb
+          subjects:
+            - kind: ServiceAccount
+              name: mongodb-kubernetes-appdb
+              namespace: mongodb
+
+    #
+    # secrets
+    #
+
+    - name: Create a secret for the mongodb admin credentials
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        state: present
+        resource_definition: |
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: mongodb-admin-password
+            namespace: mongodb
+          type: Opaque
+          stringData:
+            password: atotallysecurepasswordthatshouldtotallynotbeincleartext
+
+    - name: Create a secret for the mongodb user credentials
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        state: present
+        resource_definition: |
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: mongodb-user-password
+            namespace: mongodb
+          type: Opaque
+          stringData:
+            password: dontpanic
+
+    #
+    # MongoDB instance
+    #
+
+    - name: Create a MongoDBCommunity CRD
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        state: present
+        resource_definition: |
+          apiVersion: mongodbcommunity.mongodb.com/v1
+          kind: MongoDBCommunity
+          metadata:
+            name: vagrant-libvirt
+            namespace: mongodb
+          spec:
+            members: 1
+            type: ReplicaSet
+            version: "8.2.3"
+            security:
+              authentication:
+                modes: ["SCRAM"]
+                tls:
+                  enabled: false
+            users:
+              - name: mongodb-admin
+                db: admin
+                passwordSecretRef:
+                  name: mongodb-admin-password
+                roles:
+                  - name: clusterAdmin
+                    db: admin
+                  - name: userAdminAnyDatabase
+                    db: admin
+                scramCredentialsSecretName: mongodb-admin-password-scram
+              - name: fordprefect
+                db: vagrant-libvirt
+                passwordSecretRef:
+                  name: mongodb-user-password
+                roles:
+                  - name: readWrite
+                    db: vagrant-libvirt
+                scramCredentialsSecretName: mongodb-user-password-scram
+            additionalMongodConfig:
+              storage.wiredTiger.engineConfig.journalCompressor: zlib
+
+    - name: Wait until the vagrant-libvirt-0 pod is existing
+      delegate_to: localhost
+      kubernetes.core.k8s_info:
+        kind: Pod
+        name: vagrant-libvirt-0
+        namespace: mongodb
+        wait: true
+        wait_sleep: 10
+        wait_timeout: 360
+
+    - name: Wait until all pods in the mongodb namespace are running
+      delegate_to: localhost
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: mongodb
+      register: pod_list
+      until: |
+        pod_list | json_query("resources[*].status.phase") | unique | sort == ["Running"]
+        or
+        pod_list | json_query("resources[*].status.phase") | unique | sort == ["Running", "Succeeded"]
+      retries: 12
+      delay: 10
+
+    - name: Create the ingressrouteTCP for MongoDB
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        name: mongodb
+        state: present
+        resource_definition: |
+          apiVersion: traefik.io/v1alpha1
+          kind: IngressRouteTCP
+          metadata:
+            name: mongodb
+            namespace: mongodb
+          spec:
+            entryPoints:
+              - web
+            routes:
+              - match: HostSNI(`*`)
+                services:
+                  - name: vagrant-libvirt-svc
+                    port: 27017
+
+    - name: MongoDB URL
+      delegate_to: localhost
+      ansible.builtin.debug:
+        msg: "Use mongosh to connect: mongosh --username fordprefect mongodb://mongodb.{{ hostvars['k3s1']['ansible_default_ipv4']['address'] }}.sslip.io:80/vagrant-libvirt"
+
+    - name: MongoDB Credentials
+      delegate_to: localhost
+      ansible.builtin.debug:
+        msg: "Use the following password for the 'fordprefect' user: 'dontpanic'"
