@@ -25,7 +25,10 @@ Please be aware, that this might break the Ansible provisioning.
    podman or docker, e.g.
    `podman container run --rm -ti --entrypoint bash docker.io/library/mongo`.
 
-   ```
+   Connect as the `root` user with the password
+   `atotallysecurepasswordthatshouldtotallynotbeincleartext`:
+
+   ```bash
    $ mongosh --username root mongodb://mongodb.192.0.2.13.sslip.io:80
    Enter password: *************
    Current Mongosh Log ID: 6698f11e951bc2f385149f47
@@ -35,11 +38,11 @@ Please be aware, that this might break the Ansible provisioning.
    test>
    ```
 
-   To connect as the unprivileged user `vagrant-libvirt` to the database of the
-   same name, use the following command:
+   To connect as the unprivileged user `fordprefect` to the `vagrant-libvirt`
+   database, use the following command (and the password `dontpanic`):
 
-   ```
-   $ mongosh --username vagrant-libvirt mongodb://mongodb.192.0.2.13.sslip.io:80/vagrant-libvirt
+   ```bash
+   $ mongosh --username fordprefect mongodb://mongodb.192.0.2.13.sslip.io:80/vagrant-libvirt
    Enter password: *************
    Current Mongosh Log ID: 6698f1376d240778f7149f47
    Connecting to:          mongodb://<credentials>@mongodb.192.0.2.13.sslip.io:80/vagrant-libvirt?directConnection=true&appName=mongosh+2.2.10
@@ -61,4 +64,5 @@ BSD-3-Clause
 
 ## Author Information
 
-I am Johannes Kastl, reachable via git@johannes-kastl.de
+I am Johannes Kastl, reachable via
+[git@johannes-kastl.de](mailto:git@johannes-kastl.de).
