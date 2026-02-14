@@ -1,0 +1,48 @@
+---
+
+- name: Install the MongoDB operator
+  hosts: k3s1
+  gather_facts: true
+  become: false
+  module_defaults:
+    kubernetes.core.helm:
+      kubeconfig: ./k3s-kubeconfig
+    kubernetes.core.k8s:
+      kubeconfig: ./k3s-kubeconfig
+    kubernetes.core.k8s_info:
+      kubeconfig: ./k3s-kubeconfig
+
+  tasks:
+
+    - name: Create the mongodb-operator namespace
+      delegate_to: localhost
+      kubernetes.core.k8s:
+        name: mongodb-operator
+        api_version: v1
+        kind: Namespace
+        state: present
+
+    - name: Install the MongoDB operator via the helm chart
+      delegate_to: localhost
+      kubernetes.core.helm:
+        chart_repo_url: https://mongodb.github.io/helm-charts
+        chart_ref: mongodb-kubernetes
+        release_name: mongodb-operator
+        release_namespace: mongodb-operator
+        release_values:
+          operator:
+            watchNamespace: "*"
+
+    - name: Wait until all pods in the mongodb-operator namespace are running
+      delegate_to: localhost
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: mongodb-operator
+      register: pod_list
+      until: |
+        pod_list | json_query("resources[*].status.phase") | unique | sort == ["Running"]
+        or
+        pod_list | json_query("resources[*].status.phase") | unique | sort == ["Running", "Succeeded"]
+      retries: 12
+      delay: 10
