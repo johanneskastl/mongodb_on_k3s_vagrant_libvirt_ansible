@@ -3,7 +3,10 @@
 Vagrant-libvirt setup that creates a VM with [k3s](https://k3s.io/), the minimal
 lightweight Kubernetes distribution.
 
-On top of k3s, this setup installs a MongoDB using the [Bitnami
+On top of k3s, this setup installs a MongoDB using the official helm charts and
+the mongodb-operator.
+
+The branch called `bitnami_chart` uses the [Bitnami
 chart](https://github.com/bitnami/charts/tree/main/bitnami/mongodb).
 
 Default OS is openSUSE Tumbleweed, but that can be changed in the Vagrantfile.
